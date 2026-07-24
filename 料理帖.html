@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="format-detection" content="telephone=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="料理帖">
+<meta name="theme-color" content="#efe8d8">
+<title>料理帖</title>
+<style>
+:root{
+  --paper:#efe8d8;
+  --ink:#26211b;
+  --ink-soft:#6b6152;
+  --ink-faint:#a4977f;
+  --shu:#a93b25;
+  --line:#d6cbb4;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overscroll-behavior:none;-webkit-text-size-adjust:100%}
+body{
+  font-family:"Hiragino Mincho ProN","Hiragino Mincho Pro","Yu Mincho","YuMincho","Noto Serif JP","Noto Serif CJK JP","BIZ UDMincho",serif;
+  color:var(--ink);
+  background-color:var(--paper);
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  overflow:hidden;
+  height:100dvh;
+}
+button{cursor:pointer}
+a{color:inherit}
+
+/* ---- 帖のからだ ---- */
+#track{display:flex;height:100dvh;transition:transform .5s cubic-bezier(.22,.61,.36,1);will-change:transform}
+#track.noanim{transition:none}
+.page{flex:0 0 100vw;width:100vw;height:100dvh;position:relative;overflow:hidden}
+.page::before{content:"";position:absolute;left:0;top:0;bottom:0;width:26px;
+  background:linear-gradient(90deg,rgba(38,33,27,.08),rgba(38,33,27,0));pointer-events:none;z-index:2}
+.page-body{height:100%;overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;
+  padding:calc(54px + env(safe-area-inset-top)) 28px calc(88px + env(safe-area-inset-bottom)) 34px;
+  scrollbar-width:none}
+.page-body::-webkit-scrollbar{display:none}
+
+/* ---- 表紙 ---- */
+.cover .page-body{display:flex;align-items:center;justify-content:center;padding:0}
+.cover-wrap{display:flex;flex-direction:row-reverse;gap:26px;align-items:flex-start}
+.cover-title{writing-mode:vertical-rl;font-size:46px;letter-spacing:.4em;font-weight:600;line-height:1.35;max-height:70dvh}
+.cover-owner{writing-mode:vertical-rl;font-size:13px;letter-spacing:.35em;color:var(--ink-soft);padding-top:16px}
+.seal{position:absolute;left:32px;bottom:calc(48px + env(safe-area-inset-bottom));width:36px;height:36px;
+  background:var(--shu);color:#f2ecdd;display:flex;align-items:center;justify-content:center;
+  font-size:20px;border-radius:3px;box-shadow:inset 0 0 0 1.5px rgba(242,236,221,.28)}
+.cover-open{position:absolute;bottom:calc(28px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);
+  font-size:11.5px;letter-spacing:.55em;color:var(--ink-faint);pointer-events:none}
+
+/* ---- 目次・奥付 見出し ---- */
+.toc-h{font-size:15px;letter-spacing:.55em;text-align:center;color:var(--ink-soft);font-weight:600;margin-bottom:36px}
+
+/* ---- 目次 ---- */
+.toc-ch{display:flex;align-items:baseline;gap:10px;margin-top:26px;padding:6px 0;font-size:15.5px;letter-spacing:.08em;cursor:pointer;font-weight:600}
+.toc-ch:first-of-type{margin-top:0}
+.toc-item{display:flex;align-items:baseline;gap:10px;padding:7px 0 7px 16px;font-size:14px;color:var(--ink-soft);cursor:pointer}
+.toc-ch .dots,.toc-item .dots{flex:1;border-bottom:1px dotted #b6a98f;transform:translateY(-4px);min-width:18px}
+.toc-ch .p,.toc-item .p{font-size:11.5px;color:var(--ink-faint);letter-spacing:.05em}
+.toc-move{display:inline-flex;gap:1px;flex:0 0 auto}
+.toc-move button{font-family:inherit;font-size:11px;color:var(--ink-faint);background:none;border:none;padding:6px 7px;line-height:1}
+.toc-move button:disabled{opacity:.22;cursor:default}
+.toc-empty{color:var(--ink-faint);font-size:13.5px;text-align:center;margin-top:34px;letter-spacing:.12em;line-height:2}
+
+/* ---- 章扉 ---- */
+.chapter .page-body{display:flex;align-items:center;justify-content:center;padding:0}
+.ch-wrap{display:flex;flex-direction:column;align-items:center;gap:24px}
+.ch-name{writing-mode:vertical-rl;font-size:30px;letter-spacing:.35em;font-weight:600;max-height:62dvh;line-height:1.4}
+.ch-count{font-size:12px;letter-spacing:.45em;color:var(--ink-faint)}
+
+/* ---- 料理の頁 ---- */
+.r-edit{position:absolute;top:calc(14px + env(safe-area-inset-top));right:14px;z-index:5;
+  font-family:inherit;font-size:12px;letter-spacing:.25em;color:var(--ink-faint);background:none;border:none;padding:10px}
+.r-ch{font-size:11px;letter-spacing:.35em;color:var(--ink-faint);margin-bottom:14px}
+.r-title{font-size:25px;line-height:1.55;letter-spacing:.05em;font-weight:600;margin-bottom:6px}
+.r-date{font-size:11px;letter-spacing:.18em;color:var(--ink-faint);margin-bottom:20px}
+.r-link{display:inline-block;font-size:13px;color:var(--shu);text-decoration:none;
+  border-bottom:1px solid rgba(169,59,37,.35);letter-spacing:.06em;margin-bottom:10px}
+.r-photo-wrap{margin:6px 6px 26px 2px}
+.r-photo{display:block;width:100%;max-height:46dvh;object-fit:cover;border-radius:1px;
+  box-shadow:0 0 0 6px var(--paper),0 0 0 7px var(--line),0 4px 12px rgba(38,33,27,.25);
+  transform:rotate(-.7deg)}
+.r-sec{font-size:12px;letter-spacing:.45em;color:var(--ink-soft);margin:28px 0 12px;padding-bottom:7px;border-bottom:1px solid var(--line);font-weight:600}
+.r-ing{list-style:none}
+.r-ing li{font-size:15px;line-height:2.1;letter-spacing:.02em;padding:2px 0;border-bottom:1px dotted rgba(164,151,127,.45)}
+.r-ing li:last-child{border-bottom:none}
+.r-steps{list-style:none}
+.r-steps li{display:flex;gap:12px;font-size:15px;line-height:1.95;margin-bottom:14px}
+.r-steps .n{flex:0 0 auto;color:var(--shu);font-size:14px;padding-top:1px}
+.r-steps .s{flex:1}
+.r-note{margin-top:32px;padding:2px 0 2px 14px;border-left:2px solid var(--shu);
+  color:var(--ink-soft);font-size:14px;line-height:2;white-space:pre-line}
+
+/* ---- 白紙 ---- */
+.empty .page-body{display:flex;align-items:center;justify-content:center;padding:0}
+.empty-wrap{display:flex;flex-direction:column;align-items:center;gap:36px}
+.empty-t{writing-mode:vertical-rl;font-size:24px;letter-spacing:.45em;color:var(--ink-soft)}
+.empty-btn{font-family:inherit;font-size:13px;letter-spacing:.3em;color:var(--ink);
+  background:none;border:1px solid var(--ink-faint);border-radius:6px;padding:13px 22px}
+
+/* ---- 奥付 ---- */
+.col-fld{max-width:340px;margin:0 auto 20px}
+.col-fld label{display:block;font-size:11px;letter-spacing:.35em;color:var(--ink-faint);margin-bottom:6px}
+.col-fld input{width:100%;background:transparent;border:none;border-bottom:1px solid var(--line);
+  font:inherit;font-size:15px;color:var(--ink);padding:6px 2px;border-radius:0}
+.col-fld input:focus{outline:none;border-bottom-color:var(--shu)}
+.col-stat{text-align:center;font-size:12.5px;letter-spacing:.3em;color:var(--ink-soft);margin:28px 0}
+.col-btns{display:flex;flex-direction:column;gap:10px;max-width:340px;margin:0 auto}
+.col-btn{font-family:inherit;font-size:12.5px;letter-spacing:.3em;color:var(--ink);
+  background:none;border:1px solid var(--ink-faint);padding:12px;border-radius:6px}
+.col-warn{max-width:340px;margin:24px auto 0;font-size:11.5px;line-height:1.9;color:#8a5040;letter-spacing:.03em}
+.col-credit{text-align:center;margin-top:46px;font-size:11px;letter-spacing:.5em;color:var(--ink-faint)}
+
+/* ---- 柱・ノンブル・操作 ---- */
+#hashira{position:fixed;top:calc(14px + env(safe-area-inset-top));left:20px;z-index:6;
+  font-size:10.5px;letter-spacing:.3em;color:var(--ink-faint);pointer-events:none;
+  max-width:70vw;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+#pg{position:fixed;bottom:calc(16px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);z-index:6;
+  font-size:11px;letter-spacing:.2em;color:var(--ink-faint);pointer-events:none}
+#gotoc{position:fixed;left:12px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:7;
+  font-family:inherit;font-size:11.5px;letter-spacing:.3em;color:var(--ink-faint);background:none;border:none;padding:10px 8px}
+#addbtn{position:fixed;right:10px;bottom:calc(8px + env(safe-area-inset-bottom));z-index:7;
+  width:46px;height:46px;font-family:inherit;font-size:24px;line-height:1;color:var(--ink-soft);background:none;border:none}
+#hashira,#pg,#gotoc,#addbtn{transition:opacity .35s}
+body.at-cover #hashira,body.at-cover #pg,body.at-cover #gotoc,body.at-cover #addbtn{opacity:0;pointer-events:none}
+.edge{position:fixed;top:calc(72px + env(safe-area-inset-top));bottom:calc(72px + env(safe-area-inset-bottom));
+  width:26px;z-index:4;background:transparent;border:none;padding:0}
+#eL{left:0}
+#eR{right:0}
+
+/* ---- 書き入れの紙 ---- */
+#ov{position:fixed;inset:0;background:rgba(38,33,27,.35);z-index:20;
+  display:flex;align-items:flex-end;opacity:0;pointer-events:none;transition:opacity .25s}
+#ov.open{opacity:1;pointer-events:auto}
+#sheet{background:var(--paper);width:100%;max-height:92dvh;overflow-y:auto;
+  border-radius:14px 14px 0 0;padding:26px 24px calc(30px + env(safe-area-inset-bottom));
+  box-shadow:0 -10px 34px rgba(0,0,0,.2);
+  transform:translateY(16px);transition:transform .3s cubic-bezier(.22,.61,.36,1)}
+#ov.open #sheet{transform:none}
+#sheet h2{font-size:14px;letter-spacing:.5em;color:var(--ink-soft);text-align:center;margin-bottom:24px;font-weight:600}
+.fld{margin-bottom:18px}
+.fld label{display:block;font-size:11.5px;letter-spacing:.32em;color:var(--ink-faint);margin-bottom:6px}
+.fld input,.fld textarea{width:100%;background:transparent;border:none;border-bottom:1px solid var(--line);
+  font:inherit;font-size:15px;color:var(--ink);padding:6px 2px;border-radius:0}
+.fld textarea{min-height:86px;line-height:1.85;resize:vertical}
+.fld input:focus,.fld textarea:focus{outline:none;border-bottom-color:var(--shu)}
+.fld input::placeholder,.fld textarea::placeholder{color:#b8ac94}
+.photo-pick{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.photo-thumb{width:60px;height:60px;border-radius:6px;object-fit:cover;background:#e4dbc7;box-shadow:0 0 0 1px var(--line)}
+.photo-pick-btn{font-family:inherit;font-size:12px;letter-spacing:.2em;color:var(--ink);
+  background:none;border:1px solid var(--ink-faint);border-radius:6px;padding:9px 14px}
+.photo-remove-btn{font-family:inherit;font-size:11.5px;letter-spacing:.12em;color:#96432f;background:none;border:none;padding:6px}
+#sv{display:block;width:100%;margin-top:10px;background:var(--shu);color:#f2ecdd;border:none;
+  font-family:inherit;font-size:14px;letter-spacing:.45em;padding:14px;border-radius:6px}
+#del{display:none;width:100%;background:none;border:none;font-family:inherit;
+  font-size:12px;letter-spacing:.3em;color:#96432f;padding:13px;margin-top:12px}
+#cx{display:block;width:100%;background:none;border:none;font-family:inherit;
+  font-size:12.5px;letter-spacing:.3em;color:var(--ink-faint);padding:14px;margin-top:2px}
+
+button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--shu);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){#track{transition:none}#ov,#sheet{transition:none}}
+</style>
+</head>
+<body class="at-cover">
+
+<div id="track"></div>
+
+<div id="hashira"></div>
+<div id="pg"></div>
+<button id="gotoc" type="button">目次</button>
+<button id="addbtn" type="button" aria-label="一品を書き入れる">＋</button>
+<button class="edge" id="eL" type="button" aria-label="前の頁へ"></button>
+<button class="edge" id="eR" type="button" aria-label="次の頁へ"></button>
+
+<div id="ov">
+  <div id="sheet">
+    <h2 id="sheet-h">新しい一品</h2>
+    <div class="fld"><label for="f-name">料理名</label>
+      <input id="f-name" type="text" placeholder="例：鶏と梅の炊き込みご飯"></div>
+    <div class="fld"><label>写真</label>
+      <div class="photo-pick">
+        <img id="photo-thumb" class="photo-thumb" style="display:none" alt="">
+        <button type="button" id="photo-pick-btn" class="photo-pick-btn">写真を選ぶ</button>
+        <button type="button" id="photo-remove-btn" class="photo-remove-btn" style="display:none">写真を外す</button>
+      </div>
+      <input id="f-photo" type="file" accept="image/*" hidden></div>
+    <div class="fld"><label for="f-ch">章</label>
+      <input id="f-ch" type="text" list="chlist" placeholder="例：ご飯もの／麺／思い出の味">
+      <datalist id="chlist"></datalist></div>
+    <div class="fld"><label for="f-link">リンク</label>
+      <input id="f-link" type="url" placeholder="Xの投稿やレシピ頁のURL（任意）"></div>
+    <div class="fld"><label for="f-ing">材料</label>
+      <textarea id="f-ing" placeholder="一行にひとつ&#10;鶏もも肉　300g&#10;梅干し　3粒"></textarea></div>
+    <div class="fld"><label for="f-steps">作り方</label>
+      <textarea id="f-steps" placeholder="一行にひと手順"></textarea></div>
+    <div class="fld"><label for="f-note">覚え書き</label>
+      <textarea id="f-note" placeholder="なぜ惹かれたか。いつ作るか。"></textarea></div>
+    <button id="sv" type="button">帖に綴じる</button>
+    <button id="del" type="button">この頁を破る</button>
+    <button id="cx" type="button">やめる</button>
+  </div>
+</div>
+
+<input id="imp" type="file" accept=".json,application/json" hidden>
+
+<script>
+"use strict";
+var $ = function(s){ return document.querySelector(s); };
+var track = $("#track");
+var LS_KEY = "ryouricho.v1";
+var book = { title:"料理帖", owner:"", recipes:[], chapterOrder:[] };
+var storageOK = true;
+
+try{
+  var raw = localStorage.getItem(LS_KEY);
+  if(raw){
+    var d0 = JSON.parse(raw);
+    if(d0 && typeof d0 === "object"){
+      book.title = d0.title || "料理帖";
+      book.owner = d0.owner || "";
+      book.recipes = Array.isArray(d0.recipes) ? d0.recipes : [];
+      book.chapterOrder = Array.isArray(d0.chapterOrder) ? d0.chapterOrder : [];
+    }
+  }
+  localStorage.setItem("ryouricho.ping","1");
+}catch(e){ storageOK = false; }
+
+function save(){
+  try{ localStorage.setItem(LS_KEY, JSON.stringify(book)); }
+  catch(e){ storageOK = false; }
+}
+
+/* ---- 写真(IndexedDBに保存。文字データと分けることで、量が増えても保存枠を圧迫しない) ---- */
+function idbOpen(){
+  return new Promise(function(resolve, reject){
+    if(!("indexedDB" in window)){ reject(new Error("no indexedDB")); return; }
+    var req = indexedDB.open("ryouricho-photos", 1);
+    req.onupgradeneeded = function(){ req.result.createObjectStore("photos"); };
+    req.onsuccess = function(){ resolve(req.result); };
+    req.onerror = function(){ reject(req.error); };
+  });
+}
+function idbPutPhoto(id, blob){
+  return idbOpen().then(function(db){
+    return new Promise(function(resolve, reject){
+      var tx = db.transaction("photos", "readwrite");
+      tx.objectStore("photos").put(blob, id);
+      tx.oncomplete = function(){ resolve(true); };
+      tx.onerror = function(){ reject(tx.error); };
+    });
+  });
+}
+function idbGetPhoto(id){
+  return idbOpen().then(function(db){
+    return new Promise(function(resolve, reject){
+      var tx = db.transaction("photos", "readonly");
+      var req = tx.objectStore("photos").get(id);
+      req.onsuccess = function(){ resolve(req.result || null); };
+      req.onerror = function(){ reject(req.error); };
+    });
+  }).catch(function(){ return null; });
+}
+function idbDeletePhoto(id){
+  return idbOpen().then(function(db){
+    return new Promise(function(resolve, reject){
+      var tx = db.transaction("photos", "readwrite");
+      tx.objectStore("photos").delete(id);
+      tx.oncomplete = function(){ resolve(true); };
+      tx.onerror = function(){ reject(tx.error); };
+    });
+  }).catch(function(){ return false; });
+}
+function compressImage(file){
+  return new Promise(function(resolve, reject){
+    var img = new Image();
+    var url = URL.createObjectURL(file);
+    img.onload = function(){
+      var maxDim = 1400;
+      var w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+      var scale = Math.min(1, maxDim / Math.max(w, h));
+      var cw = Math.max(1, Math.round(w * scale)), ch = Math.max(1, Math.round(h * scale));
+      var canvas = document.createElement("canvas");
+      canvas.width = cw; canvas.height = ch;
+      canvas.getContext("2d").drawImage(img, 0, 0, cw, ch);
+      URL.revokeObjectURL(url);
+      canvas.toBlob(function(blob){
+        if(blob) resolve(blob); else reject(new Error("toBlob failed"));
+      }, "image/jpeg", 0.82);
+    };
+    img.onerror = function(){ URL.revokeObjectURL(url); reject(new Error("load failed")); };
+    img.src = url;
+  });
+}
+function blobToDataURL(blob){
+  return new Promise(function(resolve, reject){
+    var rd = new FileReader();
+    rd.onload = function(){ resolve(rd.result); };
+    rd.onerror = function(){ reject(rd.error); };
+    rd.readAsDataURL(blob);
+  });
+}
+function dataURLToBlob(dataURL){
+  var parts = dataURL.split(",");
+  var mime = (parts[0].match(/:(.*?);/) || [null, "image/jpeg"])[1];
+  var bin = atob(parts[1]);
+  var arr = new Uint8Array(bin.length);
+  for(var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return new Blob([arr], {type: mime});
+}
+
+var KD = "〇一二三四五六七八九";
+function kanji(n){
+  n = Math.floor(n);
+  if(n < 0 || n > 99) return String(n);
+  if(n < 10) return KD[n];
+  var t = Math.floor(n/10), o = n%10;
+  return (t>1 ? KD[t] : "") + "十" + (o ? KD[o] : "");
+}
+function fmtDate(iso){
+  var d = new Date(iso);
+  if(isNaN(d)) return "";
+  return d.getFullYear() + "." + (d.getMonth()+1) + "." + d.getDate();
+}
+function chapterOf(r){ return (r.chapter || "").trim() || "未分類"; }
+function chapterList(){
+  var seen = [];
+  for(var i=0;i<book.recipes.length;i++){
+    var c = chapterOf(book.recipes[i]);
+    if(seen.indexOf(c) === -1) seen.push(c);
+  }
+  if(!Array.isArray(book.chapterOrder)) book.chapterOrder = [];
+  var order = book.chapterOrder.filter(function(c){ return seen.indexOf(c) !== -1; });
+  seen.forEach(function(c){ if(order.indexOf(c) === -1) order.push(c); });
+  book.chapterOrder = order;
+  return order;
+}
+function moveChapter(c, dir){
+  var order = chapterList();
+  var i = order.indexOf(c), j = i + dir;
+  if(i < 0 || j < 0 || j >= order.length) return;
+  var tmp = order[i]; order[i] = order[j]; order[j] = tmp;
+  book.chapterOrder = order;
+  save();
+  build();
+  go(1, true);
+}
+function lines(s){
+  return (s || "").split(/\r?\n/).map(function(x){return x.trim();}).filter(Boolean);
+}
+function el(tag, cls, text){
+  var e = document.createElement(tag);
+  if(cls) e.className = cls;
+  if(text != null) e.textContent = text;
+  return e;
+}
+function inChapter(c){
+  return book.recipes.filter(function(x){ return chapterOf(x) === c; });
+}
+
+var pages = [], idx = 0, pageOfRecipe = {}, pageOfChapter = {};
+
+function build(){
+  pages = [{type:"cover"},{type:"toc"}];
+  pageOfRecipe = {}; pageOfChapter = {};
+  var chs = chapterList();
+  for(var i=0;i<chs.length;i++){
+    var c = chs[i];
+    pageOfChapter[c] = pages.length;
+    pages.push({type:"chapter", chapter:c});
+    var rs = inChapter(c);
+    for(var j=0;j<rs.length;j++){
+      pageOfRecipe[rs[j].id] = pages.length;
+      pages.push({type:"recipe", recipe:rs[j]});
+    }
+  }
+  if(book.recipes.length === 0) pages.push({type:"empty"});
+  pages.push({type:"colophon"});
+  render();
+}
+
+function render(){
+  track.innerHTML = "";
+  for(var i=0;i<pages.length;i++){
+    track.appendChild(renderPage(pages[i]));
+  }
+  refreshChrome();
+}
+
+function renderPage(p){
+  var pg = el("div", "page " + p.type);
+  var b = el("div", "page-body");
+  pg.appendChild(b);
+
+  if(p.type === "cover"){
+    var wrap = el("div","cover-wrap");
+    wrap.appendChild(el("div","cover-title", book.title || "料理帖"));
+    if(book.owner) wrap.appendChild(el("div","cover-owner", book.owner + " の帖"));
+    b.appendChild(wrap);
+    var ch0 = Array.from(book.title || "料")[0] || "料";
+    b.appendChild(el("div","seal", ch0));
+    b.appendChild(el("div","cover-open","ひらく"));
+    b.addEventListener("click", function(){ go(1); });
+  }
+
+  else if(p.type === "toc"){
+    b.appendChild(el("h1","toc-h","目　次"));
+    var chs = chapterList();
+    if(chs.length === 0){
+      b.appendChild(el("p","toc-empty","まだ何も綴じられていません。\n右下の ＋ から、最初の一品を。"));
+    }
+    chs.forEach(function(c){
+      var row = el("div","toc-ch");
+      row.appendChild(el("span","t", c));
+      row.appendChild(el("span","dots"));
+      row.appendChild(el("span","p", String(pageOfChapter[c])));
+      var mv = el("span","toc-move");
+      var upB = el("button", null, "▲"); upB.type = "button";
+      var dnB = el("button", null, "▼"); dnB.type = "button";
+      if(chs.indexOf(c) === 0) upB.disabled = true;
+      if(chs.indexOf(c) === chs.length - 1) dnB.disabled = true;
+      upB.addEventListener("click", function(e){ e.stopPropagation(); moveChapter(c, -1); });
+      dnB.addEventListener("click", function(e){ e.stopPropagation(); moveChapter(c, 1); });
+      mv.appendChild(upB); mv.appendChild(dnB);
+      row.appendChild(mv);
+      row.addEventListener("click", function(){ go(pageOfChapter[c]); });
+      b.appendChild(row);
+      inChapter(c).forEach(function(r){
+        var it = el("div","toc-item");
+        it.appendChild(el("span","t", r.name || "（無題）"));
+        it.appendChild(el("span","dots"));
+        it.appendChild(el("span","p", String(pageOfRecipe[r.id])));
+        it.addEventListener("click", function(){ go(pageOfRecipe[r.id]); });
+        b.appendChild(it);
+      });
+    });
+  }
+
+  else if(p.type === "chapter"){
+    var w = el("div","ch-wrap");
+    w.appendChild(el("div","ch-name", p.chapter));
+    w.appendChild(el("div","ch-count", kanji(inChapter(p.chapter).length) + "品"));
+    b.appendChild(w);
+  }
+
+  else if(p.type === "recipe"){
+    var r = p.recipe;
+    var eb = el("button","r-edit","直す");
+    eb.type = "button";
+    eb.addEventListener("click", function(ev){ ev.stopPropagation(); openForm(r.id); });
+    pg.appendChild(eb);
+
+    b.appendChild(el("div","r-ch", chapterOf(r)));
+    b.appendChild(el("h1","r-title", r.name || "（無題）"));
+    if(r.createdAt) b.appendChild(el("div","r-date","収載　" + fmtDate(r.createdAt)));
+    if(r.link){
+      var u = r.link.trim();
+      if(!/^https?:\/\//i.test(u)) u = "https://" + u;
+      var a = el("a","r-link","元の頁をひらく ↗");
+      a.href = u; a.target = "_blank"; a.rel = "noopener";
+      b.appendChild(a);
+    }
+    if(r.hasPhoto){
+      var pw = el("div","r-photo-wrap");
+      var pimg = el("img","r-photo");
+      pimg.alt = r.name || "";
+      pw.appendChild(pimg);
+      b.appendChild(pw);
+      idbGetPhoto(r.id).then(function(blob){
+        if(blob) pimg.src = URL.createObjectURL(blob);
+        else pw.remove();
+      }).catch(function(){ pw.remove(); });
+    }
+    var ing = lines(r.ingredients);
+    if(ing.length){
+      b.appendChild(el("div","r-sec","材　料"));
+      var ul = el("ul","r-ing");
+      ing.forEach(function(x){ ul.appendChild(el("li", null, x)); });
+      b.appendChild(ul);
+    }
+    var st = lines(r.steps);
+    if(st.length){
+      b.appendChild(el("div","r-sec","作 り 方"));
+      var ol = el("ol","r-steps");
+      st.forEach(function(x, i2){
+        var li = el("li");
+        li.appendChild(el("span","n", kanji(i2+1) + "、"));
+        li.appendChild(el("span","s", x));
+        ol.appendChild(li);
+      });
+      b.appendChild(ol);
+    }
+    if((r.note || "").trim()){
+      b.appendChild(el("div","r-note", r.note.trim()));
+    }
+  }
+
+  else if(p.type === "empty"){
+    var w2 = el("div","empty-wrap");
+    w2.appendChild(el("div","empty-t","まだ、白紙。"));
+    var btn = el("button","empty-btn","最初の一品を書き入れる");
+    btn.type = "button";
+    btn.addEventListener("click", function(){ openForm(null, ""); });
+    w2.appendChild(btn);
+    b.appendChild(w2);
+  }
+
+  else if(p.type === "colophon"){
+    b.appendChild(el("h1","toc-h","奥　付"));
+
+    var f1 = el("div","col-fld");
+    var l1 = el("label", null, "書名"); l1.htmlFor = "col-title";
+    f1.appendChild(l1);
+    var ti = el("input"); ti.type = "text"; ti.id = "col-title";
+    ti.value = book.title; ti.placeholder = "料理帖";
+    ti.addEventListener("change", function(){
+      book.title = ti.value.trim() || "料理帖";
+      save(); build(); go(pages.length - 1, true);
+    });
+    f1.appendChild(ti); b.appendChild(f1);
+
+    var f2 = el("div","col-fld");
+    var l2 = el("label", null, "持ち主"); l2.htmlFor = "col-owner";
+    f2.appendChild(l2);
+    var oi = el("input"); oi.type = "text"; oi.id = "col-owner";
+    oi.value = book.owner; oi.placeholder = "名前（任意）";
+    oi.addEventListener("change", function(){
+      book.owner = oi.value.trim();
+      save(); build(); go(pages.length - 1, true);
+    });
+    f2.appendChild(oi); b.appendChild(f2);
+
+    b.appendChild(el("p","col-stat","収載　" + kanji(book.recipes.length) + "品　／　" + kanji(chapterList().length) + "章"));
+
+    var row = el("div","col-btns");
+    var ex = el("button","col-btn","控えを書き出す"); ex.type = "button";
+    ex.addEventListener("click", exportBook);
+    var im = el("button","col-btn","控えから読み込む"); im.type = "button";
+    im.addEventListener("click", function(){ $("#imp").click(); });
+    row.appendChild(ex); row.appendChild(im);
+    b.appendChild(row);
+
+    if(!storageOK){
+      b.appendChild(el("p","col-warn","※いまの画面では自動保存が働きません。このファイルを端末に保存し、ブラウザ（ChromeやSafari）で開くと、綴じた頁が残ります。"));
+    }
+    b.appendChild(el("p","col-credit","手で育てる、一冊。"));
+  }
+
+  return pg;
+}
+
+function go(i, noanim){
+  idx = Math.max(0, Math.min(pages.length - 1, i));
+  if(noanim) track.classList.add("noanim");
+  track.style.transform = "translateX(-" + (idx * 100) + "vw)";
+  if(noanim){
+    requestAnimationFrame(function(){
+      requestAnimationFrame(function(){ track.classList.remove("noanim"); });
+    });
+  }
+  refreshChrome();
+}
+
+function refreshChrome(){
+  var p = pages[idx] || {};
+  document.body.classList.toggle("at-cover", p.type === "cover");
+  $("#pg").textContent = (p.type === "cover") ? "" : String(idx);
+  var h = "";
+  if(p.type === "toc") h = book.title;
+  else if(p.type === "chapter") h = book.title + "　　" + p.chapter;
+  else if(p.type === "recipe") h = book.title + "　　" + chapterOf(p.recipe);
+  else if(p.type === "colophon") h = book.title + "　　奥付";
+  else if(p.type === "empty") h = book.title;
+  $("#hashira").textContent = h;
+}
+
+/* ---- 書き入れ ---- */
+var editingId = null;
+var pendingPhotoBlob = null, photoRemoved = false;
+
+function openForm(id, presetCh){
+  editingId = id || null;
+  pendingPhotoBlob = null;
+  photoRemoved = false;
+  var r = id ? book.recipes.find(function(x){ return x.id === id; }) : null;
+  $("#sheet-h").textContent = r ? "頁を直す" : "新しい一品";
+  $("#f-name").value = r ? (r.name || "") : "";
+  $("#f-ch").value = r ? (r.chapter || "") : (presetCh || "");
+  $("#f-link").value = r ? (r.link || "") : "";
+  $("#f-ing").value = r ? (r.ingredients || "") : "";
+  $("#f-steps").value = r ? (r.steps || "") : "";
+  $("#f-note").value = r ? (r.note || "") : "";
+  $("#del").style.display = r ? "block" : "none";
+
+  var thumb = $("#photo-thumb"), rmBtn = $("#photo-remove-btn");
+  thumb.style.display = "none"; thumb.src = "";
+  rmBtn.style.display = "none";
+  if(r && r.hasPhoto){
+    idbGetPhoto(r.id).then(function(blob){
+      if(blob && editingId === r.id){
+        thumb.src = URL.createObjectURL(blob);
+        thumb.style.display = "block";
+        rmBtn.style.display = "inline-block";
+      }
+    });
+  }
+
+  var dl = $("#chlist");
+  dl.innerHTML = "";
+  chapterList().forEach(function(c){
+    var o = document.createElement("option");
+    o.value = c; dl.appendChild(o);
+  });
+  $("#ov").classList.add("open");
+}
+
+function closeForm(){
+  $("#ov").classList.remove("open");
+  editingId = null;
+}
+
+$("#cx").addEventListener("click", closeForm);
+$("#ov").addEventListener("click", function(e){ if(e.target.id === "ov") closeForm(); });
+
+$("#photo-pick-btn").addEventListener("click", function(){ $("#f-photo").click(); });
+$("#photo-remove-btn").addEventListener("click", function(){
+  pendingPhotoBlob = null;
+  photoRemoved = true;
+  var thumb = $("#photo-thumb");
+  thumb.style.display = "none"; thumb.src = "";
+  this.style.display = "none";
+});
+$("#f-photo").addEventListener("change", function(e){
+  var f = e.target.files && e.target.files[0];
+  e.target.value = "";
+  if(!f) return;
+  compressImage(f).then(function(blob){
+    pendingPhotoBlob = blob;
+    photoRemoved = false;
+    var thumb = $("#photo-thumb");
+    thumb.src = URL.createObjectURL(blob);
+    thumb.style.display = "block";
+    $("#photo-remove-btn").style.display = "inline-block";
+  }).catch(function(){
+    alert("その写真は読み込めませんでした。");
+  });
+});
+
+$("#sv").addEventListener("click", function(){
+  var name = $("#f-name").value.trim();
+  if(!name){ $("#f-name").focus(); return; }
+  var eid = editingId;
+  var targetId, hasPhotoNow;
+  if(eid){
+    var r = book.recipes.find(function(x){ return x.id === eid; });
+    if(r){
+      r.name = name;
+      r.chapter = $("#f-ch").value.trim();
+      r.link = $("#f-link").value.trim();
+      r.ingredients = $("#f-ing").value;
+      r.steps = $("#f-steps").value;
+      r.note = $("#f-note").value;
+      hasPhotoNow = !!r.hasPhoto;
+    }
+    targetId = eid;
+  }else{
+    var nr = {
+      id: "r" + Date.now().toString(36) + Math.random().toString(36).slice(2,6),
+      name: name,
+      chapter: $("#f-ch").value.trim(),
+      link: $("#f-link").value.trim(),
+      ingredients: $("#f-ing").value,
+      steps: $("#f-steps").value,
+      note: $("#f-note").value,
+      hasPhoto: false,
+      createdAt: new Date().toISOString()
+    };
+    book.recipes.push(nr);
+    targetId = nr.id;
+    hasPhotoNow = false;
+  }
+
+  var photoTask;
+  if(pendingPhotoBlob){
+    var blobToSave = pendingPhotoBlob;
+    photoTask = idbPutPhoto(targetId, blobToSave).then(function(){ hasPhotoNow = true; }).catch(function(){});
+  }else if(photoRemoved){
+    photoTask = idbDeletePhoto(targetId).then(function(){ hasPhotoNow = false; }).catch(function(){});
+  }else{
+    photoTask = Promise.resolve();
+  }
+
+  photoTask.then(function(){
+    var rr = book.recipes.find(function(x){ return x.id === targetId; });
+    if(rr) rr.hasPhoto = !!hasPhotoNow;
+    save();
+    closeForm();
+    build();
+    var t = pageOfRecipe[targetId];
+    go(typeof t === "number" ? t : 1, true);
+  });
+});
+
+$("#del").addEventListener("click", function(){
+  if(!editingId) return;
+  if(!confirm("この頁を破りますか？　元に戻せません。")) return;
+  var eid = editingId;
+  book.recipes = book.recipes.filter(function(x){ return x.id !== eid; });
+  idbDeletePhoto(eid).catch(function(){});
+  save();
+  closeForm();
+  build();
+  go(1, true);
+});
+
+/* ---- 操作 ---- */
+$("#addbtn").addEventListener("click", function(){
+  var p = pages[idx] || {};
+  var preset = "";
+  if(p.type === "chapter") preset = p.chapter;
+  else if(p.type === "recipe") preset = chapterOf(p.recipe);
+  if(preset === "未分類") preset = "";
+  openForm(null, preset);
+});
+$("#gotoc").addEventListener("click", function(){ go(1); });
+$("#eL").addEventListener("click", function(){ go(idx - 1); });
+$("#eR").addEventListener("click", function(){ go(idx + 1); });
+
+var tx = 0, ty = 0, tOn = false;
+document.addEventListener("touchstart", function(e){
+  if($("#ov").classList.contains("open")) return;
+  tOn = true;
+  tx = e.touches[0].clientX;
+  ty = e.touches[0].clientY;
+}, {passive:true});
+document.addEventListener("touchend", function(e){
+  if(!tOn) return;
+  tOn = false;
+  if($("#ov").classList.contains("open")) return;
+  var dx = e.changedTouches[0].clientX - tx;
+  var dy = e.changedTouches[0].clientY - ty;
+  if(Math.abs(dx) > 56 && Math.abs(dx) > Math.abs(dy) * 1.3){
+    if(dx < 0) go(idx + 1); else go(idx - 1);
+  }
+}, {passive:true});
+document.addEventListener("keydown", function(e){
+  if($("#ov").classList.contains("open")) return;
+  if(e.target && /INPUT|TEXTAREA/.test(e.target.tagName)) return;
+  if(e.key === "ArrowRight") go(idx + 1);
+  if(e.key === "ArrowLeft") go(idx - 1);
+});
+
+/* ---- 控え ---- */
+function exportBook(){
+  var withPhotos = book.recipes.filter(function(x){ return x.hasPhoto; });
+  var tasks = withPhotos.map(function(r){
+    return idbGetPhoto(r.id).then(function(blob){
+      return blob ? blobToDataURL(blob).then(function(du){ return [r.id, du]; }) : null;
+    }).catch(function(){ return null; });
+  });
+  Promise.all(tasks).then(function(results){
+    var photos = {};
+    results.forEach(function(pair){ if(pair) photos[pair[0]] = pair[1]; });
+    try{
+      var payload = { title: book.title, owner: book.owner, recipes: book.recipes, chapterOrder: book.chapterOrder, photos: photos };
+      var blob = new Blob([JSON.stringify(payload, null, 2)], {type:"application/json"});
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = (book.title || "ryouricho") + ".json";
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 500);
+    }catch(e){ alert("書き出しに失敗しました。"); }
+  }).catch(function(){ alert("書き出しに失敗しました。"); });
+}
+$("#imp").addEventListener("change", function(e){
+  var f = e.target.files && e.target.files[0];
+  if(!f) return;
+  var rd = new FileReader();
+  rd.onload = function(){
+    try{
+      var d = JSON.parse(rd.result);
+      if(!d || !Array.isArray(d.recipes)) throw new Error("bad");
+      book = { title: d.title || "料理帖", owner: d.owner || "", recipes: d.recipes, chapterOrder: Array.isArray(d.chapterOrder) ? d.chapterOrder : [] };
+      var photoIds = (d.photos && typeof d.photos === "object") ? Object.keys(d.photos) : [];
+      var restoreTasks = photoIds.map(function(id){
+        try{ return idbPutPhoto(id, dataURLToBlob(d.photos[id])).catch(function(){}); }
+        catch(e){ return Promise.resolve(); }
+      });
+      Promise.all(restoreTasks).catch(function(){}).then(function(){
+        save(); build(); go(1, true);
+      });
+    }catch(err){
+      alert("読み込めませんでした。「控えを書き出す」で作ったファイルか、確かめてください。");
+    }
+    e.target.value = "";
+  };
+  rd.readAsText(f);
+});
+
+/* ---- 起動 ---- */
+build();
+go(0, true);
+</script>
+</body>
+</html>
