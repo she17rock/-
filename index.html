@@ -74,7 +74,7 @@ a{color:inherit}
 .ch-count{font-size:12px;letter-spacing:.45em;color:var(--ink-faint)}
 
 /* ---- 料理の頁 ---- */
-.r-edit{position:absolute;top:calc(46px + env(safe-area-inset-top));right:14px;z-index:5;
+#r-edit{position:fixed;top:calc(13px + env(safe-area-inset-top));right:14px;z-index:6;display:none;
   font-family:inherit;font-size:12px;letter-spacing:.25em;color:var(--ink-faint);background:none;border:none;padding:10px}
 .r-ch{font-size:11px;letter-spacing:.35em;color:var(--ink-faint);margin-bottom:14px}
 .r-title{font-size:25px;line-height:1.55;letter-spacing:.05em;font-weight:600;margin-bottom:6px}
@@ -177,6 +177,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
 <div id="chrome-top"></div>
 <div id="chrome-bottom"></div>
 <div id="hashira"></div>
+<button id="r-edit" type="button" style="display:none">直す</button>
 <div id="pg"></div>
 <button id="gotoc" type="button">目次</button>
 <button id="addbtn" type="button" aria-label="一品を書き入れる">＋</button>
@@ -455,10 +456,6 @@ function renderPage(p){
 
   else if(p.type === "recipe"){
     var r = p.recipe;
-    var eb = el("button","r-edit","直す");
-    eb.type = "button";
-    eb.addEventListener("click", function(ev){ ev.stopPropagation(); openForm(r.id); });
-    pg.appendChild(eb);
 
     b.appendChild(el("div","r-ch", chapterOf(r)));
     b.appendChild(el("h1","r-title", r.name || "（無題）"));
@@ -582,6 +579,15 @@ function refreshChrome(){
   else if(p.type === "colophon") h = book.title + "　　奥付";
   else if(p.type === "empty") h = book.title;
   $("#hashira").textContent = h;
+
+  var reditBtn = $("#r-edit");
+  if(p.type === "recipe"){
+    reditBtn.style.display = "block";
+    reditBtn.onclick = function(){ openForm(p.recipe.id); };
+  }else{
+    reditBtn.style.display = "none";
+    reditBtn.onclick = null;
+  }
 }
 
 /* ---- 書き入れ ---- */
